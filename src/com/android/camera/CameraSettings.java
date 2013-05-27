@@ -70,7 +70,7 @@ public class CameraSettings {
     private static final String VIDEO_QUALITY_YOUTUBE_HD = "youtubehd";
     private static final String VIDEO_QUALITY_YOUTUBE = "youtube";
 
-    public static final String EXPOSURE_DEFAULT_VALUE = "0";
+    public static String EXPOSURE_DEFAULT_VALUE = "";
 
     public static final int CURRENT_VERSION = 4;
     public static final int CURRENT_LOCAL_VERSION = 1;
@@ -115,6 +115,7 @@ public class CameraSettings {
         mIsOMAP4Camera = mContext.getResources().getBoolean(R.bool.isOMAP4Camera);
         sFocusCamcorderAtStart = mContext.getResources().getBoolean(
                 R.bool.focusCamcorderAtStart);
+        EXPOSURE_DEFAULT_VALUE = mContext.getResources().getString(R.string.exposure_default);
     }
 
     public PreferenceGroup getPreferenceGroup(int preferenceRes) {
@@ -453,10 +454,10 @@ public class CameraSettings {
         }
         if (version == 1) {
             // Change jpeg quality {65,75,85} to {normal,fine,superfine}
-            String quality = pref.getString(KEY_JPEG_QUALITY, "85");
-            if (quality.equals("65")) {
+            String quality = pref.getString(KEY_JPEG_QUALITY, "100");
+            if (quality.equals("75")) {
                 quality = "normal";
-            } else if (quality.equals("75")) {
+            } else if (quality.equals("85")) {
                 quality = "fine";
             } else {
                 quality = "superfine";

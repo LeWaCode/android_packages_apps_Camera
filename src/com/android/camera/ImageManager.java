@@ -445,6 +445,8 @@ public class ImageManager {
         } else if (!requireWriteAccess
                 && Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
             return true;
+        } else if (!TextUtils.isEmpty(internalDir)) {
+            return true;
         }
         return false;
     }

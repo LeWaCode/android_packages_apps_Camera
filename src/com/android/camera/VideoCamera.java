@@ -950,7 +950,7 @@ public class VideoCamera extends BaseCamera
             setPreviewDisplay(holder);
         } else {
             stopVideoRecording();
-            restartPreview();
+            // restartPreview();
         }
     }
 
@@ -1689,10 +1689,10 @@ public class VideoCamera extends BaseCamera
         if (sizeChanged) {
             // It is assumed media recorder is released before
             // onSharedPreferenceChanged, so we can close the camera here.
-            mCameraDevice.stopPreview();
-            releaseMediaRecorder();
-            closeCamera();
-            resizeForPreviewAspectRatio();
+            // mCameraDevice.stopPreview();
+            // releaseMediaRecorder();
+            // closeCamera();
+            // resizeForPreviewAspectRatio();
             restartPreview(); // Parameters will be set in startPreview().
             initializeHeadUpDisplay();
         } else {
@@ -1805,6 +1805,13 @@ public class VideoCamera extends BaseCamera
             }
             return result;
         } else if (zoomRatios != null) {
+            if (android.os.SystemProperties.get("ro.product.device").equals("cooper")) {
+                zoomRatios.clear();
+                String ratios = "100,102,104,107,109,112,114,117,120";
+                for (String s : ratios.split(",")) {
+                    zoomRatios.add(Integer.valueOf(s));
+                }
+            }
             float result[] = new float[zoomRatios.size()];
             for (int i = 0, n = result.length; i < n; ++i) {
                 result[i] = (float) zoomRatios.get(i) / 100f;

@@ -49,9 +49,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.MessageQueue;
+import android.os.SystemProperties;
 import android.provider.MediaStore;
 import android.provider.Settings;
-import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.Display;
 import android.view.GestureDetector;
@@ -132,6 +132,10 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     private boolean mTimerMode = false;
     private int mTargetZoomValue;
 
+    private AudioManager audiomanager;
+    private boolean mSound;
+    private boolean mRingerModeChanged;
+    private int mSystemRingerMode;
     private Parameters mInitialParams;
 
     private MyOrientationEventListener mOrientationListener;
@@ -279,6 +283,9 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         if (!CameraSettings.EXPOSURE_DEFAULT_VALUE.equals(value)) {
             Editor editor = mPreferences.edit();
             editor.putString(CameraSettings.KEY_EXPOSURE, "0");
+            if (android.os.SystemProperties.get("ro.product.device").equals("marvel")) {
+                editor.putString(CameraSettings.KEY_EXPOSURE, "2");
+            }
             editor.apply();
             if (mHeadUpDisplay != null) {
                 mHeadUpDisplay.reloadPreferences();
@@ -605,6 +612,10 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                 return;
             }
 
+            if (mRingerModeChanged) {
+                audiomanager.setRingerMode(mSystemRingerMode);
+                mRingerModeChanged = false;
+            }
             mJpegPictureCallbackTime = System.currentTimeMillis();
             // If postview callback has arrived, the captured image is displayed
             // in postview callback. If not, the captured image is displayed in
@@ -674,6 +685,9 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                 boolean focused, android.hardware.Camera camera) {
             mFocusCallbackTime = System.currentTimeMillis();
             mAutoFocusTime = mFocusCallbackTime - mFocusStartTime;
+            if (android.os.SystemProperties.get("ro.product.device").equals("marvel")) {
+                mAutoFocusTime = mAutoFocusTime - 1;
+            }
             Log.e(TAG, "<PROFILE> mAutoFocusTime = " + mAutoFocusTime + "ms");
             if (mFocusState == FOCUSING_SNAP_ON_FINISH) {
                 // Take the picture no matter focus succeeds or fails. No need
@@ -819,6 +833,11 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                     rotation = (info.orientation - mOrientation + 360) % 360;
                 } else {  // back-facing camera (or acting like it)
                     rotation = (info.orientation + mOrientation) % 360;
+                    if("TD".equalsIgnoreCase(SystemProperties.get("ro.product.network"))){
+                        if(rotation == 90){
+                            rotation = 180 + (info.orientation + mOrientation) % 360;
+                        }
+                    }
                 }
             }
             mParameters.setRotation(rotation);
@@ -859,13 +878,13 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                 }
             }
 
-            long dateTaken = System.currentTimeMillis();
-            if (dateTaken != 0) {
-                String datetime = DateFormat.format("yyyy:MM:dd kk:mm:ss", dateTaken).toString();
-                mParameters.set("exif-datetime",datetime);
+            mCameraDevice.setParameters(mParameters);
+
+            if (mSound && mSystemRingerMode != AudioManager.RINGER_MODE_SILENT) {
+                audiomanager.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                mRingerModeChanged = true;
             }
 
-            mCameraDevice.setParameters(mParameters);
 
             incrementkeypress();
             Size pictureSize = mParameters.getPictureSize();
@@ -943,6 +962,7 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         mCameraId = CameraSettings.readPreferredCameraId(mPreferences);
         mPreferences.setLocalId(this, mCameraId);
         CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
+        audiomanager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
 
         mShutterdownTime = 0;
         mShutterupTime = 0;
@@ -1383,6 +1403,9 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     protected void onResume() {
         super.onResume();
 
+        mSound = prefs.getBoolean("shutter_mute", false);
+        mSystemRingerMode = audiomanager.getRingerMode();
+
         mPausing = false;
         mJpegPictureCallbackTime = 0;
         mZoomValue = 0;
@@ -1549,7 +1572,7 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         boolean searchShutter = prefs.getBoolean("search_shutter_enabled", false);
         boolean volUpShutter = prefs.getBoolean("vol_up_shutter_enabled", false);
         boolean volDownShutter = prefs.getBoolean("vol_down_shutter_enabled", false);
-        boolean volZoom = prefs.getBoolean("vol_zoom_enabled", false);
+        boolean volZoom = prefs.getBoolean("vol_zoom_enabled", true);
 
         switch (keyCode) {
             case KeyEvent.KEYCODE_FOCUS:
@@ -1645,7 +1668,9 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         if (!mParameters.isZoomSupported()) {
             return true;
         }
-
+        if(mHeadUpDisplay == null){
+            return false;
+        }
         // Perform zoom only when preview is started and snapshot is not in progress.
         if (mPausing || !isCameraIdle() || !mPreviewing || mZoomState != ZOOM_STOPPED) {
             return false;
@@ -2215,6 +2240,9 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     }
 
     private void gotoCameraSettings() {
+        Editor editor = prefs.edit();
+        editor.putBoolean("zoom_supported", mParameters.isZoomSupported());
+        editor.apply();
         Intent intent = new Intent(this, AdvancedSettings.class);
         startActivity(intent);
     }
@@ -2523,7 +2551,7 @@ public class Camera extends BaseCamera implements View.OnClickListener,
  */
 class JpegEncodingQualityMappings {
     private static final String TAG = "JpegEncodingQualityMappings";
-    private static final int DEFAULT_QUALITY = 85;
+    private static final int DEFAULT_QUALITY = 100;
     private static HashMap<String, Integer> mHashMap =
             new HashMap<String, Integer>();
 
